@@ -24,6 +24,7 @@ function loadConfig(): SyncConfig {
   } catch {
     /* ignore */
   }
+  const before = JSON.stringify(base)
   try {
     const params = new URLSearchParams(window.location.search)
     // ссылка-приглашение: ?gh=owner/repo&list=our-list&backend=github
@@ -47,6 +48,14 @@ function loadConfig(): SyncConfig {
     if (sbUrl) base.sbUrl = sbUrl
   } catch {
     /* ignore */
+  }
+  // настройки из ссылки-приглашения сразу сохраняем, чтобы не зависеть от кнопки «Сохранить»
+  if (JSON.stringify(base) !== before) {
+    try {
+      localStorage.setItem(CFG_KEY, JSON.stringify(base))
+    } catch {
+      /* ignore */
+    }
   }
   return base
 }
