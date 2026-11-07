@@ -76,7 +76,14 @@ function loadConfig(): SyncConfig {
 
 export function useTierDoc() {
   const [config, setConfig] = useState<SyncConfig>(loadConfig)
-  const [doc, setDoc] = useState<Doc>(() => readLocalDoc() ?? emptyDoc())
+  const [doc, setDoc] = useState<Doc>(() => {
+    const local = readLocalDoc()
+    if (local) return local
+    // новое устройство: пустой документ должен быть «старее» удалённого,
+    // иначе настройки и режим из репозитория не подхватятся
+    const base = emptyDoc()
+    return { ...base, updatedAt: 0, meta: { ...base.meta, updatedAt: 0 } }
+  })
   const [person, setPersonState] = useState<PersonId>(() => {
     const raw = localStorage.getItem(PERSONA_KEY)
     return raw === 'u2' ? 'u2' : 'u1'

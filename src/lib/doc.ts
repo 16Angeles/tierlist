@@ -67,9 +67,15 @@ export function mergeItem(local: Item, remote: Item): Item {
 export function refreshFactorScores(d: Doc): Doc {
   const weights = normalizeWeights(d.meta.weights)
   let changed = false
+  const split = d.meta.mode === 'split'
   const items = d.items.map((it) => {
     const ratings: Item['ratings'] = { ...it.ratings }
     let itemChanged = false
+    // в раздельном режиме «общая» оценка — осиротевшая копия, её убираем
+    if (split && ratings.shared && ratings.u1) {
+      delete ratings.shared
+      itemChanged = true
+    }
     for (const key of Object.keys(ratings) as PersonId[]) {
       const r = ratings[key]
       if (!r) continue
