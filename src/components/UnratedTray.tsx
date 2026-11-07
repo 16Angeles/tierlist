@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Inbox, Plus } from 'lucide-react'
-import type { Item, Mode, PersonId } from '../types'
+import type { Factors, Item, Mode, PersonId, Weights } from '../types'
 import { ROW_PREFIX } from '../state/useTierDnd'
 import { PosterCard } from './PosterCard'
 
@@ -10,7 +10,9 @@ export function UnratedTray({
   mode,
   person,
   names,
+  weights,
   onScore,
+  onFactors,
   onOpen,
   onAdd,
 }: {
@@ -18,7 +20,9 @@ export function UnratedTray({
   mode: Mode
   person: PersonId
   names: Record<PersonId, string>
+  weights?: Weights | null
   onScore: (itemId: string, score: number | undefined) => void
+  onFactors: (itemId: string, factors: Factors | undefined) => void
   onOpen: (item: Item) => void
   onAdd: () => void
 }) {
@@ -60,7 +64,9 @@ export function UnratedTray({
                   mode={mode}
                   person={person}
                   names={names}
+                  weights={weights}
                   onScore={onScore}
+                  onFactors={onFactors}
                   onOpen={onOpen}
                   compact
                 />

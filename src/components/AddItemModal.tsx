@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link2, Search, Trash2 } from 'lucide-react'
+import { Link2, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { Modal } from './Modal'
-import type { Item, Kind } from '../types'
+import { FactorSliders } from './FactorSliders'
+import type { Factors, Item, Kind, Mode, PersonId, Weights } from '../types'
 import { KIND_LABEL } from '../types'
+import { DEFAULT_FACTORS, factorsScore, ratingFactors } from '../lib/factors'
+import { tierForScore } from '../lib/tiers'
 
 interface TmdbResult {
   id: number
@@ -22,6 +25,10 @@ export function AddItemModal({
   onDelete,
   editing,
   tmdbKey,
+  mode,
+  person,
+  weights,
+  onFactors,
 }: {
   open: boolean
   onClose: () => void
@@ -30,6 +37,10 @@ export function AddItemModal({
   onDelete: (id: string) => void
   editing: Item | null
   tmdbKey: string
+  mode: Mode
+  person: PersonId
+  weights?: Weights | null
+  onFactors: (id: string, factors: Factors | undefined) => void
 }) {
   const [title, setTitle] = useState('')
   const [year, setYear] = useState('')
@@ -41,9 +52,15 @@ export function AddItemModal({
   const [results, setResults] = useState<TmdbResult[]>([])
   const [busy, setBusy] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [draft, setDraft] = useState<Factors>({ ...DEFAULT_FACTORS })
+  const [factorsOn, setFactorsOn] = useState(false)
 
   useEffect(() => {
     if (!open) return
+    const key = mode === 'shared' ? 'shared' : person
+    const existing = editing ? ratingFactors(editing.ratings[key]) : null
+    setDraft(existing ?? { ...DEFAULT_FACTORS })
+    setFactorsOn(!!existing)
     if (editing) {
       setTitle(editing.title)
       setYear(editing.year ? String(editing.year) : '')
@@ -62,7 +79,7 @@ export function AddItemModal({
     setQ('')
     setResults([])
     setSearched(false)
-  }, [open, editing])
+  }, [open, editing, mode, person])
 
   async function tmdbSearch() {
     if (!tmdbKey || !q.trim()) return
@@ -92,6 +109,9 @@ export function AddItemModal({
     }
   }
 
+  const derived = factorsOn ? factorsScore(draft, weights) : null
+  const derivedTier = tierForScore(derived ?? undefined)
+
   function submit() {
     if (!title.trim()) return
     const data: Partial<Item> = {
@@ -102,8 +122,21 @@ export function AddItemModal({
       url: url.trim() || undefined,
       note: note.trim() || undefined,
     }
-    if (editing) onUpdate(editing.id, data)
-    else onAdd(data)
+    if (editing) {
+      onUpdate(editing.id, data)
+      const key = mode === 'shared' ? 'shared' : person
+      const before = ratingFactors(editing.ratings[key])
+      const same = JSON.stringify(before ?? null) === JSON.stringify(factorsOn ? draft : null)
+      if (!same) onFactors(editing.id, factorsOn ? draft : undefined)
+    } else {
+      if (factorsOn && derived !== null) {
+        const key = mode === 'shared' ? 'shared' : person
+        data.ratings = {
+          [key]: { score: derived, factors: draft, updatedAt: Date.now() },
+        }
+      }
+      onAdd(data)
+    }
     onClose()
   }
 
@@ -261,6 +294,64 @@ export function AddItemModal({
             placeholder="Почему такая оценка?"
           />
         </label>
+      </div>
+
+      {/* шкала по 5 факторам */}
+      <div className="mt-5 rounded-2xl border border-white/[.08] bg-white/[.03] p-3.5">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-white/50">
+              <SlidersHorizontal size={13} className="text-amber-400/80" />
+              Оценка по 5 факторам
+            </div>
+            <div className="mt-1 text-[11px] leading-relaxed text-white/35">
+              {mode === 'split'
+                ? 'Ваши оценки — у друга свои. Итог тирлиста считается по средней.'
+                : 'Итоговая оценка в тирлисте считается сама из пяти ползунков.'}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div
+              className="font-display text-[30px] leading-none"
+              style={{ color: derivedTier?.to ?? 'rgba(255,255,255,.3)' }}
+            >
+              {derived !== null ? derived.toFixed(1) : '—'}
+            </div>
+            <div
+              className="mt-0.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: derivedTier?.to ?? 'rgba(255,255,255,.25)' }}
+            >
+              {derivedTier ? `${derivedTier.letter} · ${derivedTier.caption}` : 'итог'}
+            </div>
+          </div>
+        </div>
+
+        <FactorSliders
+          value={draft}
+          onChange={(f) => {
+            setDraft(f)
+            setFactorsOn(true)
+          }}
+          weights={weights}
+          hints
+          dim={!factorsOn}
+        />
+
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/[.07] pt-2.5">
+          <span className="text-[10.5px] leading-relaxed text-white/30">
+            {factorsOn
+              ? 'Итог пересчитывается автоматически при изменении весов факторов.'
+              : 'Сдвиньте любой ползунок, чтобы оценить по факторам.'}
+          </span>
+          {factorsOn && (
+            <button
+              className="btn btn-ghost shrink-0 !px-2.5 !py-1 !text-[11px]"
+              onClick={() => setFactorsOn(false)}
+            >
+              без факторов
+            </button>
+          )}
+        </div>
       </div>
     </Modal>
   )

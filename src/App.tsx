@@ -192,7 +192,9 @@ export default function App() {
               mode={api.mode}
               person={api.person}
               names={names}
+              weights={api.doc.meta.weights}
               onScore={api.setScore}
+              onFactors={api.setFactors}
               onOpen={openEdit}
               listName={api.doc.meta.name}
               onExportPng={exportPng}
@@ -209,7 +211,9 @@ export default function App() {
               mode={api.mode}
               person={api.person}
               names={names}
+              weights={api.doc.meta.weights}
               onScore={api.setScore}
+              onFactors={api.setFactors}
               onOpen={openEdit}
               onAdd={openAdd}
             />
@@ -234,6 +238,10 @@ export default function App() {
         }}
         editing={editing}
         tmdbKey={api.config.tmdbKey}
+        mode={api.mode}
+        person={api.person}
+        weights={api.doc.meta.weights}
+        onFactors={api.setFactors}
       />
 
       <SettingsModal
@@ -246,14 +254,18 @@ export default function App() {
         setMode={api.setMode}
         importDoc={api.importDoc}
         resetDoc={api.resetDoc}
+        person={api.person}
+        onPerson={api.setPerson}
+        setWeights={api.setWeights}
       />
 
       <WelcomeModal
         open={!api.welcomed}
         onClose={() => api.finishWelcome()}
-        onStart={({ name, u1, u2, mode }) => {
+        onStart={({ name, u1, u2, mode, who }) => {
           api.setMeta({ name, people: { u1, u2 } })
           api.setMode(mode)
+          api.setPerson(who)
           api.finishWelcome()
         }}
         defaultName={api.doc.meta.name}

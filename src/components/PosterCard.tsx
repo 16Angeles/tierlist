@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Pencil } from 'lucide-react'
-import type { Item, Mode, PersonId } from '../types'
+import { GripVertical, Pencil, SlidersHorizontal } from 'lucide-react'
+import type { Factors, Item, Mode, PersonId, Weights } from '../types'
 import { displayedScore, tierForItem } from '../lib/tiers'
 import { formatScore } from '../lib/utils'
+import { ratingFactors } from '../lib/factors'
 import { ScorePicker } from './ScorePicker'
 import { closeAllPickers, onCloseAllPickers } from '../lib/pickerBus'
 
@@ -78,9 +79,11 @@ function PosterFace({
 }) {
   const tier = tierForItem(item, mode)
   const score = displayedScore(item, mode)
-  const myScore = item.ratings[mode === 'shared' ? 'shared' : person]?.score
+  const key = mode === 'shared' ? 'shared' : person
+  const myScore = item.ratings[key]?.score
   const otherScore =
     mode === 'split' ? item.ratings[person === 'u1' ? 'u2' : 'u1']?.score : undefined
+  const hasFactors = !!ratingFactors(item.ratings[key])
 
   return (
     <>
@@ -140,6 +143,16 @@ function PosterFace({
           </button>
         )}
 
+        {hasFactors && (
+          <div
+            className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white/70 backdrop-blur-sm"
+            title="Оценка посчитана по 5 факторам"
+          >
+            <SlidersHorizontal size={9} />
+            5 факторов
+          </div>
+        )}
+
         {mode === 'split' && otherScore !== undefined && (
           <div
             className="absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow"
@@ -189,7 +202,9 @@ export function PosterCard({
   mode,
   person,
   names,
+  weights,
   onScore,
+  onFactors,
   onOpen,
   compact = false,
 }: {
@@ -197,7 +212,9 @@ export function PosterCard({
   mode: Mode
   person: PersonId
   names: Record<PersonId, string>
+  weights?: Weights | null
   onScore: (itemId: string, score: number | undefined) => void
+  onFactors: (itemId: string, factors: Factors | undefined) => void
   onOpen: (item: Item) => void
   compact?: boolean
 }) {
@@ -254,7 +271,9 @@ export function PosterCard({
           mode={mode}
           person={person}
           names={names}
+          weights={weights}
           onPick={(s) => onScore(item.id, s)}
+          onFactors={(f) => onFactors(item.id, f)}
           onClose={() => setPicker(null)}
         />
       )}

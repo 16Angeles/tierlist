@@ -24,7 +24,7 @@ export function containerOf(item: Item, mode: Doc['meta']['mode']): string {
 export function useTierDnd(opts: {
   doc: Doc
   person: PersonId
-  setScore: (itemId: string, score: number | undefined) => void
+  setScore: (itemId: string, score: number | undefined, opts?: { keepFactors?: boolean }) => void
   reorder: (ids: string[]) => void
 }) {
   const { doc, person, setScore, reorder } = opts
@@ -93,7 +93,7 @@ export function useTierDnd(opts: {
       // недостижимый тир (например, друг поставил 10, а мы хотим S) — не дёргаем карточку на лету
       if (!tierTarget(tier, dragging, doc.meta.mode, person)) return
       const score = scoreForTier(tier, dragging, doc.meta.mode, person)
-      setScore(draggingId, score)
+      setScore(draggingId, score, { keepFactors: true })
 
       const ids = idsIn(target, draggingId)
       ids.push(draggingId)
@@ -126,7 +126,9 @@ export function useTierDnd(opts: {
         }
         const tier = tierById(container)
         if (tier) {
-          setScore(draggingId, scoreForTier(tier, dragging, doc.meta.mode, person))
+          setScore(draggingId, scoreForTier(tier, dragging, doc.meta.mode, person), {
+            keepFactors: true,
+          })
           const moved = idsIn(container, draggingId)
           moved.push(draggingId)
           reorder(moved)

@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
-import type { Item, Mode, PersonId } from '../types'
+import type { Factors, Item, Mode, PersonId, Weights } from '../types'
 import type { TierDef } from '../lib/tiers'
 import { tierTarget } from '../lib/tiers'
 import { ROW_PREFIX } from '../state/useTierDnd'
@@ -13,7 +13,9 @@ export function TierRow({
   mode,
   person,
   names,
+  weights,
   onScore,
+  onFactors,
   onOpen,
   total,
   draggingItem,
@@ -23,7 +25,9 @@ export function TierRow({
   mode: Mode
   person: PersonId
   names: Record<PersonId, string>
+  weights?: Weights | null
   onScore: (itemId: string, score: number | undefined) => void
+  onFactors: (itemId: string, factors: Factors | undefined) => void
   onOpen: (item: Item) => void
   total: number
   draggingItem?: Item | null
@@ -121,7 +125,9 @@ export function TierRow({
                   mode={mode}
                   person={person}
                   names={names}
+                  weights={weights}
                   onScore={onScore}
+                  onFactors={onFactors}
                   onOpen={onOpen}
                 />
               ))}

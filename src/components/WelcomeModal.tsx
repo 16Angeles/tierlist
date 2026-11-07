@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Sparkles, Users } from 'lucide-react'
 import { Modal } from './Modal'
-import type { Mode } from '../types'
+import type { Mode, PersonId } from '../types'
 
 export function WelcomeModal({
   open,
@@ -14,7 +14,13 @@ export function WelcomeModal({
 }: {
   open: boolean
   onClose: () => void
-  onStart: (data: { name: string; u1: string; u2: string; mode: Mode }) => void
+  onStart: (data: {
+    name: string
+    u1: string
+    u2: string
+    mode: Mode
+    who: PersonId
+  }) => void
   defaultName: string
   defaultU1: string
   defaultU2: string
@@ -23,6 +29,7 @@ export function WelcomeModal({
   const [u1, setU1] = useState(defaultU1)
   const [u2, setU2] = useState(defaultU2)
   const [mode, setMode] = useState<Mode>('split')
+  const [who, setWho] = useState<PersonId>('u1')
 
   return (
     <Modal
@@ -38,7 +45,15 @@ export function WelcomeModal({
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => onStart({ name: name.trim() || 'Наш тирлист', u1: u1.trim() || 'Я', u2: u2.trim() || 'Друг', mode })}
+            onClick={() =>
+              onStart({
+                name: name.trim() || 'Наш тирлист',
+                u1: u1.trim() || 'Я',
+                u2: u2.trim() || 'Друг',
+                mode,
+                who,
+              })
+            }
           >
             <Sparkles size={14} /> Начать
           </button>
@@ -94,6 +109,35 @@ export function WelcomeModal({
               </motion.button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">
+            Кто вы на этом устройстве?
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { id: 'u1' as PersonId, label: u1 || 'Я' },
+                { id: 'u2' as PersonId, label: u2 || 'Друг' },
+              ]
+            ).map((w) => (
+              <button
+                key={w.id}
+                onClick={() => setWho(w.id)}
+                className={`rounded-xl border px-3 py-2 text-[12.5px] font-semibold transition ${
+                  who === w.id
+                    ? 'border-amber-400/50 bg-amber-400/[.08] text-white'
+                    : 'border-white/[.08] bg-white/[.025] text-white/55 hover:border-white/20'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10.5px] leading-relaxed text-white/30">
+            Запомним выбор на этом компьютере. У друга на его устройстве нужно будет выбрать своё имя.
+          </p>
         </div>
 
         <p className="rounded-xl border border-white/[.07] bg-white/[.025] p-3 text-[11.5px] leading-relaxed text-white/45">

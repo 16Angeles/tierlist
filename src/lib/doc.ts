@@ -1,5 +1,6 @@
 import type { Doc, Item, Meta, PersonId } from '../types'
 import { uid } from './utils'
+import { DEFAULT_WEIGHTS, factorsScore, normalizeWeights, sanitizeFactors } from './factors'
 
 export const DOC_VERSION = 1
 
@@ -12,6 +13,7 @@ export function emptyDoc(): Doc {
       name: 'Наш тирлист',
       mode: 'shared',
       people: { u1: 'Я', u2: 'Друг' },
+      weights: { ...DEFAULT_WEIGHTS },
       updatedAt: now,
     },
     items: [],
@@ -58,6 +60,37 @@ export function mergeItem(local: Item, remote: Item): Item {
   return merged
 }
 
+/**
+ * Пересчитывает оценки, посчитанные по факторам (например, после смены весов).
+ * Оценка без факторов не трогается.
+ */
+export function refreshFactorScores(d: Doc): Doc {
+  const weights = normalizeWeights(d.meta.weights)
+  let changed = false
+  const items = d.items.map((it) => {
+    const ratings: Item['ratings'] = { ...it.ratings }
+    let itemChanged = false
+    for (const key of Object.keys(ratings) as PersonId[]) {
+      const r = ratings[key]
+      if (!r) continue
+      const f = sanitizeFactors(r.factors)
+      if (!f) continue
+      const score = factorsScore(f, weights)
+      if (Math.abs(r.score - score) > 0.001) {
+        ratings[key] = { ...r, score, factors: f }
+        itemChanged = true
+      } else if (!r.factors) {
+        ratings[key] = { ...r, factors: f }
+        itemChanged = true
+      }
+    }
+    if (!itemChanged) return it
+    changed = true
+    return { ...it, ratings, updatedAt: Date.now() }
+  })
+  return changed ? { ...d, items } : d
+}
+
 export function mergeMeta(local: Meta, remote: Meta): Meta {
   return (remote.updatedAt ?? 0) > (local.updatedAt ?? 0) ? remote : local
 }
@@ -91,6 +124,21 @@ export function docsEqual(a: Doc, b: Doc): boolean {
   return norm(a) === norm(b)
 }
 
+/** чистит оценки: убирает битые факторы */
+function sanitizeRatings(ratings: Item['ratings'] | undefined): Item['ratings'] {
+  if (!ratings || typeof ratings !== 'object') return {}
+  const out: Item['ratings'] = {}
+  for (const key of Object.keys(ratings) as PersonId[]) {
+    const r = ratings[key]
+    if (!r || typeof r !== 'object') continue
+    const score = Number(r.score)
+    if (!Number.isFinite(score)) continue
+    const f = sanitizeFactors(r.factors)
+    out[key] = f ? { score, factors: f, updatedAt: Number(r.updatedAt) || Date.now() } : { score, updatedAt: Number(r.updatedAt) || Date.now() }
+  }
+  return out
+}
+
 export function normalizeDoc(raw: unknown): Doc {
   const base = emptyDoc()
   if (!raw || typeof raw !== 'object') return base
@@ -102,7 +150,7 @@ export function normalizeDoc(raw: unknown): Doc {
           const it = i as Item
           return {
             ...it,
-            ratings: it.ratings && typeof it.ratings === 'object' ? it.ratings : {},
+            ratings: sanitizeRatings(it.ratings),
             order: Number(it.order) || 0,
             orderAt: Number(it.orderAt) || Date.now(),
             createdAt: Number(it.createdAt) || Date.now(),
@@ -117,6 +165,7 @@ export function normalizeDoc(raw: unknown): Doc {
       ...base.meta,
       ...(r.meta ?? {}),
       people: { ...base.meta.people, ...(r.meta?.people ?? {}) },
+      weights: normalizeWeights(r.meta?.weights),
       updatedAt: Number(r.meta?.updatedAt) || Date.now(),
     },
     items,

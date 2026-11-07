@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
-import { BarChart3, Crown, Flame } from 'lucide-react'
+import { BarChart3, Crown, Flame, SlidersHorizontal } from 'lucide-react'
 import type { Item, Mode, PersonId } from '../types'
+import { FACTORS } from '../types'
 import { TIERS, displayedScore, tierForItem } from '../lib/tiers'
+import { ratingFactors } from '../lib/factors'
 import { formatScore } from '../lib/utils'
 
 export function StatsPanel({
@@ -46,6 +48,20 @@ export function StatsPanel({
       mine: mine.length,
       theirs: theirs.length,
     }
+  }, [items, mode, person])
+
+  /* средние по пяти факторам (по моим оценкам) */
+  const factorStats = useMemo(() => {
+    const key = mode === 'shared' ? 'shared' : person
+    const sums: Record<string, number> = {}
+    let n = 0
+    for (const it of items) {
+      const f = ratingFactors(it.ratings[key])
+      if (!f) continue
+      n++
+      for (const meta of FACTORS) sums[meta.id] = (sums[meta.id] ?? 0) + f[meta.id]
+    }
+    return { n, avg: FACTORS.map((m) => (n ? (sums[m.id] ?? 0) / n : 0)) }
   }, [items, mode, person])
 
   const max = Math.max(1, ...Object.values(stats.counts))
@@ -93,6 +109,40 @@ export function StatsPanel({
           </div>
         ))}
       </div>
+
+      {factorStats.n > 0 && (
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+            <SlidersHorizontal size={11} className="text-amber-400/70" />
+            средние по факторам
+          </div>
+          <div className="space-y-1.5">
+            {FACTORS.map((f, i) => {
+              const v = factorStats.avg[i]
+              const p = Math.max(0, Math.min(1, (v - 1) / 9))
+              return (
+                <div key={f.id} className="flex items-center gap-2.5">
+                  <span className="w-[74px] shrink-0 truncate text-[10.5px] text-white/45">
+                    {f.short}
+                  </span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[.06]">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-700"
+                      style={{
+                        width: `${p * 100}%`,
+                        background: 'linear-gradient(90deg, #f43f5e, #f59e0b 45%, #10b981)',
+                      }}
+                    />
+                  </div>
+                  <span className="w-7 shrink-0 text-right text-[10.5px] tabular-nums text-white/40">
+                    {v.toFixed(1)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {mode === 'split' && (
         <div className="mb-4 grid grid-cols-2 gap-2">

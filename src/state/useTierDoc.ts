@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Doc, Item, Meta, Mode, PersonId } from '../types'
+import type { Doc, Factors, Item, Meta, Mode, PersonId, Weights } from '../types'
 import {
   DEFAULT_CONFIG,
   configKey,
@@ -8,7 +8,21 @@ import {
   type SyncConfig,
   type SyncStatus,
 } from '../lib/sync'
-import { docsEqual, emptyDoc, makeItem, mergeDocs, normalizeDoc } from '../lib/doc'
+import {
+  docsEqual,
+  emptyDoc,
+  makeItem,
+  mergeDocs,
+  normalizeDoc,
+  refreshFactorScores,
+} from '../lib/doc'
+import {
+  factorsScore,
+  normalizeWeights,
+  ratingFactors,
+  sanitizeFactors,
+  scaleFactors,
+} from '../lib/factors'
 import { readLocalDoc, writeLocalDoc } from '../lib/sync/local'
 import { activePerson } from '../lib/tiers'
 
@@ -112,7 +126,7 @@ export function useTierDoc() {
   const mutate = useCallback(
     (fn: (d: Doc) => Doc) => {
       setDoc((prev) => {
-        const next = fn(prev)
+        const next = refreshFactorScores(fn(prev))
         return { ...next, updatedAt: Date.now() }
       })
       markDirty()
@@ -134,7 +148,7 @@ export function useTierDoc() {
         if (!alive) return
         if (remote) {
           setDoc((prev) => {
-            const merged = mergeDocs(prev, remote)
+            const merged = refreshFactorScores(mergeDocs(prev, remote))
             if (!docsEqual(merged, remote)) markDirty()
             return merged
           })
@@ -156,7 +170,7 @@ export function useTierDoc() {
     const unsub = adapter.subscribe?.((remote) => {
       if (!remote) return
       setDoc((prev) => {
-        const merged = mergeDocs(prev, remote)
+        const merged = refreshFactorScores(mergeDocs(prev, remote))
         if (!docsEqual(merged, remote)) markDirty()
         return merged
       })
@@ -199,24 +213,87 @@ export function useTierDoc() {
 
   const key = activePerson(doc.meta.mode, person)
 
+  /**
+   * Ставит оценку вручную.
+   * keepFactors — если у оценки есть детализация по факторам, факторы
+   * пропорционально подгоняются под новую оценку, а не сбрасываются.
+   */
   const setScore = useCallback(
-    (itemId: string, score: number | undefined) => {
+    (itemId: string, score: number | undefined, opts?: { keepFactors?: boolean }) => {
       mutate((d) => {
         const target = activePerson(d.meta.mode, person)
         const now = Date.now()
+        const weights = normalizeWeights(d.meta.weights)
         return {
           ...d,
           items: d.items.map((it) => {
             if (it.id !== itemId) return it
             const ratings = { ...it.ratings }
-            if (score && score > 0) ratings[target] = { score, updatedAt: now }
-            else delete ratings[target]
+            if (score && score > 0) {
+              const cur = ratings[target]
+              const f = ratingFactors(cur)
+              if (f && opts?.keepFactors) {
+                const scaled = scaleFactors(f, score, weights)
+                ratings[target] = {
+                  score: factorsScore(scaled, weights),
+                  factors: scaled,
+                  updatedAt: now,
+                }
+              } else {
+                ratings[target] = { score, updatedAt: now }
+              }
+            } else delete ratings[target]
             return { ...it, ratings, updatedAt: now }
           }),
         }
       })
     },
     [mutate, person],
+  )
+
+  /** Детализация по 5 факторам — итоговая оценка считается из неё */
+  const setFactors = useCallback(
+    (itemId: string, raw: Factors | undefined | null) => {
+      mutate((d) => {
+        const target = activePerson(d.meta.mode, person)
+        const now = Date.now()
+        const weights = normalizeWeights(d.meta.weights)
+        const factors = raw ? sanitizeFactors(raw) : null
+        return {
+          ...d,
+          items: d.items.map((it) => {
+            if (it.id !== itemId) return it
+            const ratings = { ...it.ratings }
+            if (!factors) {
+              if (!ratings[target]) return it
+              delete ratings[target]
+            } else {
+              ratings[target] = {
+                score: factorsScore(factors, weights),
+                factors,
+                updatedAt: now,
+              }
+            }
+            return { ...it, ratings, updatedAt: now }
+          }),
+        }
+      })
+    },
+    [mutate, person],
+  )
+
+  /** Веса факторов — общие для обоих участников; оценки пересчитываются */
+  const setWeights = useCallback(
+    (w: Weights) => {
+      mutate((d) => {
+        const weights = normalizeWeights(w)
+        return {
+          ...d,
+          meta: { ...d.meta, weights, updatedAt: Date.now() },
+        }
+      })
+    },
+    [mutate],
   )
 
   const addItem = useCallback(
@@ -356,6 +433,8 @@ export function useTierDoc() {
     welcomed,
     finishWelcome,
     setScore,
+    setFactors,
+    setWeights,
     addItem,
     updateItem,
     removeItem,

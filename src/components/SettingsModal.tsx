@@ -9,6 +9,7 @@ import {
   Link2,
   Plug,
   RotateCcw,
+  SlidersHorizontal,
   Upload,
   Users,
 } from 'lucide-react'
@@ -17,9 +18,11 @@ import type { SyncConfig } from '../lib/sync'
 import { createAdapter, shareableConfig } from '../lib/sync'
 import { copyText, download, uid } from '../lib/utils'
 import { toast } from '../lib/toast'
-import type { Doc, Mode } from '../types'
+import type { Doc, Mode, PersonId, Weights } from '../types'
+import { FACTORS } from '../types'
+import { DEFAULT_WEIGHTS, normalizeWeights, weightPercents } from '../lib/factors'
 
-type Tab = 'connect' | 'people' | 'data'
+type Tab = 'connect' | 'people' | 'factors' | 'data'
 
 export function SettingsModal({
   open,
@@ -31,6 +34,9 @@ export function SettingsModal({
   setMode,
   importDoc,
   resetDoc,
+  person,
+  onPerson,
+  setWeights,
 }: {
   open: boolean
   onClose: () => void
@@ -41,6 +47,9 @@ export function SettingsModal({
   setMode: (m: Mode) => void
   importDoc: (raw: unknown) => void
   resetDoc: () => void
+  person: PersonId
+  onPerson: (p: PersonId) => void
+  setWeights: (w: Weights) => void
 }) {
   const [tab, setTab] = useState<Tab>('connect')
   const [draft, setDraft] = useState<SyncConfig>(config)
@@ -123,6 +132,7 @@ export function SettingsModal({
           [
             { id: 'connect', label: 'Подключение', icon: <Plug size={13} /> },
             { id: 'people', label: 'Участники', icon: <Users size={13} /> },
+            { id: 'factors', label: 'Факторы', icon: <SlidersHorizontal size={13} /> },
             { id: 'data', label: 'Данные', icon: <Cloud size={13} /> },
           ] as const
         ).map((t) => (
@@ -360,7 +370,7 @@ export function SettingsModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">Ваше имя</span>
+              <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">Имя участника 1</span>
               <input
                 className="field"
                 value={doc.meta.people.u1}
@@ -368,7 +378,7 @@ export function SettingsModal({
               />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">Имя друга</span>
+              <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">Имя участника 2</span>
               <input
                 className="field"
                 value={doc.meta.people.u2}
@@ -376,6 +386,38 @@ export function SettingsModal({
               />
             </label>
           </div>
+
+          {doc.meta.mode === 'split' && (
+            <div>
+              <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">
+                Кто вы на этом устройстве?
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { id: 'u1' as PersonId, label: doc.meta.people.u1 || 'Участник 1' },
+                    { id: 'u2' as PersonId, label: doc.meta.people.u2 || 'Участник 2' },
+                  ]
+                ).map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => onPerson(w.id)}
+                    className={`rounded-xl border px-3 py-2 text-[12.5px] font-semibold transition ${
+                      person === w.id
+                        ? 'border-amber-400/50 bg-amber-400/[.08] text-white'
+                        : 'border-white/[.08] bg-white/[.025] text-white/55 hover:border-white/20'
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10.5px] leading-relaxed text-white/30">
+                Выбор сохраняется только на этом устройстве. На компьютере друга нужно будет выбрать своё
+                имя — тогда каждый ставит свою оценку, а тир считается по средней.
+              </p>
+            </div>
+          )}
 
           <label className="block">
             <span className="mb-1.5 block text-[11.5px] font-medium text-white/50">
@@ -389,6 +431,69 @@ export function SettingsModal({
               onChange={(e) => updateConfig({ tmdbKey: e.target.value.trim() })}
             />
           </label>
+        </div>
+      )}
+
+      {tab === 'factors' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-white/[.08] bg-white/[.025] p-4 text-[12px] leading-relaxed text-white/50">
+            Итоговая оценка фильма считается как <b className="text-white/80">взвешенное среднее</b> по
+            пяти факторам. Ниже можно изменить вклад каждого фактора — оценки пересчитаются
+            автоматически у обоих участников.
+          </div>
+
+          <div className="space-y-3">
+            {FACTORS.map((f) => {
+              const w = normalizeWeights(doc.meta.weights)
+              const pct = weightPercents(doc.meta.weights)[f.id]
+              return (
+                <div key={f.id}>
+                  <div className="mb-1 flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate text-[12px] font-medium text-white/70">
+                      {f.label}
+                      <span className="ml-1.5 text-[10.5px] font-normal text-white/30">{f.hint}</span>
+                    </span>
+                    <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-white/50">
+                      {pct}%
+                    </span>
+                  </div>
+                  <div className="relative h-[6px] rounded-full bg-white/[.07]">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-amber-400/70 transition-[width] duration-150"
+                      style={{ width: `${(w[f.id] / 3) * 100}%` }}
+                    />
+                    <input
+                      type="range"
+                      className="factor-range absolute left-0 top-1/2 w-full -translate-y-1/2"
+                      min={0}
+                      max={3}
+                      step={0.5}
+                      value={w[f.id]}
+                      onChange={(e) =>
+                        setWeights({ ...normalizeWeights(doc.meta.weights), [f.id]: Number(e.target.value) })
+                      }
+                      aria-label={`Вес фактора «${f.label}»`}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="btn btn-ghost"
+              onClick={() => {
+                setWeights({ ...DEFAULT_WEIGHTS })
+                toast('Веса факторов сброшены')
+              }}
+            >
+              <RotateCcw size={14} /> Равные веса
+            </button>
+            <span className="text-[11px] text-white/30">
+              Сейчас: {FACTORS.map((f) => `${f.label} ${weightPercents(doc.meta.weights)[f.id]}%`).join(' · ')}
+            </span>
+          </div>
         </div>
       )}
 

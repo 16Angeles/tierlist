@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Sparkles } from 'lucide-react'
-import type { Item, Mode, PersonId } from '../types'
+import type { Factors, Item, Mode, PersonId, Weights } from '../types'
 import { TIERS, tierForItem } from '../lib/tiers'
 import { TierRow } from './TierRow'
 
@@ -9,7 +9,9 @@ export function TierBoard({
   mode,
   person,
   names,
+  weights,
   onScore,
+  onFactors,
   onOpen,
   listName,
   onExportPng,
@@ -21,7 +23,9 @@ export function TierBoard({
   mode: Mode
   person: PersonId
   names: Record<PersonId, string>
+  weights?: Weights | null
   onScore: (itemId: string, score: number | undefined) => void
+  onFactors: (itemId: string, factors: Factors | undefined) => void
   onOpen: (item: Item) => void
   listName: string
   onExportPng: () => void
@@ -87,7 +91,9 @@ export function TierBoard({
             mode={mode}
             person={person}
             names={names}
+            weights={weights}
             onScore={onScore}
+            onFactors={onFactors}
             onOpen={onOpen}
             total={items.length}
             draggingItem={draggingItem}
