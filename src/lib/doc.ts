@@ -110,10 +110,12 @@ export function mergeDocs(local: Doc, remote: Doc): Doc {
   }
   const items = [...map.values()].filter((i) => !i.deletedAt)
   items.sort((a, b) => a.createdAt - b.createdAt)
+  // новое устройство (пустой локальный список) всегда принимает настройки удалённого документа
+  const freshDevice = local.items.length === 0 && remote.items.length > 0
   return {
     v: DOC_VERSION,
     updatedAt: Math.max(local.updatedAt ?? 0, remote.updatedAt ?? 0),
-    meta: mergeMeta(local.meta, remote.meta),
+    meta: freshDevice ? remote.meta : mergeMeta(local.meta, remote.meta),
     items,
   }
 }
