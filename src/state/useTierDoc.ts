@@ -76,6 +76,13 @@ export function useTierDoc() {
 
   const adapter: SyncAdapter = useMemo(() => createAdapter(config), [configKey(config)])
 
+  /** готов ли удалённый бэкенд к работе (есть все нужные ключи) */
+  const remoteReady =
+    config.backend === 'local' ||
+    (config.backend === 'github'
+      ? !!(config.ghOwner && config.ghRepo && config.ghToken && config.listId)
+      : !!(config.sbUrl && config.sbKey && config.listId))
+
   const setPerson = useCallback((p: PersonId) => {
     setPersonState(p)
     try {
@@ -116,8 +123,7 @@ export function useTierDoc() {
   /* ---- первичная загрузка + подписка на удалённые изменения ---- */
   useEffect(() => {
     let alive = true
-    const isLocal = config.backend === 'local'
-    if (isLocal) {
+    if (!remoteReady) {
       setStatus('local')
       return
     }
@@ -163,7 +169,7 @@ export function useTierDoc() {
       alive = false
       unsub?.()
     }
-  }, [adapter, config.backend, markDirty])
+  }, [adapter, remoteReady, config.backend, markDirty])
 
   /* ---- автосохранение (с задержкой, чтобы не писать на каждый чих) ---- */
   useEffect(() => {
@@ -173,13 +179,13 @@ export function useTierDoc() {
   useEffect(() => {
     if (!dirty) return
     const t = window.setTimeout(async () => {
-      setStatus(config.backend === 'local' ? 'local' : 'syncing')
+      setStatus(remoteReady ? 'syncing' : 'local')
       try {
         await adapter.save(doc)
         dirtyRef.current = false
         setDirty(false)
         setLastSync(Date.now())
-        setStatus(config.backend === 'local' ? 'local' : 'synced')
+        setStatus(remoteReady ? 'synced' : 'local')
         setError(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
@@ -187,7 +193,7 @@ export function useTierDoc() {
       }
     }, 800)
     return () => window.clearTimeout(t)
-  }, [doc, dirty, adapter, config.backend])
+  }, [doc, dirty, adapter, remoteReady])
 
   /* ---- действия ---- */
 
