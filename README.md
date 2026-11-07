@@ -1,5 +1,10 @@
 # 🎬 Tiers — общий тирлист фильмов и сериалов
 
+> **Живой сайт:** https://16angeles.github.io/tierlist/
+> **Данные (приватные):** https://github.com/16Angeles/tierlist-data
+> **Ссылка для друга:** открывает сайт с уже подставленными настройками — останется вставить свой токен:
+> `https://16angeles.github.io/tierlist/?backend=github&gh=16Angeles/tierlist-data&branch=main&path=tierlist.json&list=our-list`
+
 Красивый тирлист по **10-балльной шкале**, который работает на статике (GitHub Pages) и
 синхронизируется между двумя компьютерами. Никакого сервера не нужно — данные лежат
 в JSON-файле вашего GitHub-репозитория.
