@@ -75,7 +75,7 @@ export function TierRow({
             {tier.caption}
           </div>
           <div className="mt-0.5 text-[9.5px] font-medium tabular-nums text-white/28">
-            {tier.min}–{tier.max}
+            {tier.label}
           </div>
         </div>
         {items.length > 0 && (
@@ -106,7 +106,7 @@ export function TierRow({
         )}
         {items.length === 0 ? (
           <div className="flex h-[102px] items-center justify-center rounded-xl border border-dashed border-white/[.09] text-[12px] text-white/25">
-            Перетащите фильмы сюда — оценки {tier.min}–{tier.max}
+            Перетащите фильмы сюда — оценки {tier.label}
           </div>
         ) : (
           <SortableContext

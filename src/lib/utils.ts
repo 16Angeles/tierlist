@@ -16,7 +16,7 @@ export function round1(n: number): number {
 
 export function formatScore(n: number | undefined): string {
   if (n === undefined) return '—'
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+  return String(Math.round(n * 100) / 100)
 }
 
 export function toBase64(str: string): string {

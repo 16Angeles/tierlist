@@ -305,7 +305,7 @@ export function useTierDoc() {
             const a = ratings.u1?.score
             const b = ratings.u2?.score
             if (a || b) {
-              const avg = Math.round((((a ?? b) as number) * 2) / 2)
+              const avg = Math.round((((a ?? b) as number) * 10) / 10)
               ratings.shared = { score: avg, updatedAt: now }
             }
             delete ratings.u1

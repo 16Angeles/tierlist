@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Pencil } from 'lucide-react'
@@ -6,6 +6,7 @@ import type { Item, Mode, PersonId } from '../types'
 import { displayedScore, tierForItem } from '../lib/tiers'
 import { formatScore } from '../lib/utils'
 import { ScorePicker } from './ScorePicker'
+import { closeAllPickers, onCloseAllPickers } from '../lib/pickerBus'
 
 const PALETTES: [string, string][] = [
   ['#7c3aed', '#2563eb'],
@@ -202,6 +203,9 @@ export function PosterCard({
 }) {
   const [picker, setPicker] = useState<{ x: number; y: number } | null>(null)
 
+  // одновременно может быть открыт только один пикер
+  useEffect(() => onCloseAllPickers(() => setPicker(null)), [])
+
   const sortable = useSortable({ id: item.id, data: { item } })
 
   const openPicker = useCallback((el: HTMLElement | null) => {
@@ -212,6 +216,7 @@ export function PosterCard({
     let x = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), window.innerWidth - w - 12)
     let y = r.bottom + 10
     if (y + h > window.innerHeight - 12) y = Math.max(12, r.top - h - 10)
+    closeAllPickers()
     setPicker({ x, y })
   }, [])
 
